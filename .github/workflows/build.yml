@@ -1,0 +1,45 @@
+name: CI
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive   # pulls VoodooInput
+
+    - name: Core logic unit tests
+      run: |
+        clang++ -std=gnu++14 -Wall -Wextra -IAlpsHID Tests/core_test.cpp -o core_test
+        ./core_test
+
+    - name: Install MacKernelSDK
+      run: |
+        git clone --depth=1 https://github.com/acidanthera/MacKernelSDK.git
+
+    - name: Debug Build
+      run: |
+        set -o pipefail
+        xcodebuild -alltargets -configuration Debug ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO | xcpretty
+
+    - name: Release Build
+      run: |
+        set -o pipefail
+        xcodebuild -alltargets -configuration Release ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO | xcpretty
+
+    - name: Package kexts
+      run: |
+        for cfg in Debug Release; do
+          test -d "build/$cfg/AlpsHID.kext" || { echo "missing $cfg kext"; exit 1; }
+          (cd "build/$cfg" && zip -qry "../../AlpsHID-$cfg.zip" AlpsHID.kext)
+        done
+
+    - name: Upload to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ github.event.repository.name }}
+        path: AlpsHID-*.zip
+        if-no-files-found: error
