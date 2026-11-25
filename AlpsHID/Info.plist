@@ -47,12 +47,16 @@
 			<string>IOHIDInterface</string>
 			<key>QuietTimeAfterTyping</key>
 			<integer>500</integer>
+			<key>PressureSupport</key>
+			<true/>
+			<key>ForceTouchThreshold</key>
+			<integer>105</integer>
 			<key>RM,deliverNotifications</key>
 			<true/>
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2019 blankmac. All rights reserved.</string>
+	<string>Copyright © 2019-2026 blankmac. All rights reserved.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.alexandred.VoodooI2C</key>

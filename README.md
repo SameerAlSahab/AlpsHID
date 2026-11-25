@@ -125,6 +125,23 @@ List of devices that match the ProductIDs above, found using http://linux-hardwa
   - Dell Precision 7740 
 
 
+# Pressure and Force Touch (U1 touchpads)
+
+U1 pads report a 7-bit contact strength. AlpsHID maps it to pressure/size and emulates Force Touch with
+hysteresis: it engages at `ForceTouchThreshold` and releases 15 below it. Tune these in `Info.plist`:
+
+- `PressureSupport` (bool, default true) - false restores the old fixed-pressure behaviour
+- `ForceTouchThreshold` (0-127, default 105) - lower = lighter press triggers force click
+- `QuietTimeAfterTyping` (ms, default 500)
+
+T4 pads do not report per-finger pressure, so they keep fixed pressure. While the physical button is held,
+VoodooInput overrides pressure to 120.
+
+# Tests
+
+`g++ -std=gnu++14 -IAlpsHID Tests/core_test.cpp -o /tmp/t && /tmp/t` runs host-side tests of the parsing,
+checksum, finger-tracking and force-touch logic (`AlpsHID/AlpsCore.hpp`). The kext glue needs Xcode + MacKernelSDK.
+
 # Building AlpsHID
 
 To build --
