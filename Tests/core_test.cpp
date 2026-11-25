@@ -76,13 +76,24 @@ int main() {
     CHECK(tr.update(g, o) == 2 && !o[0].valid);             // lift only reported once
     g.c[1].active = false; CHECK(tr.update(g, o) == 2 && !o[1].active && o[1].valid);
     CHECK(tr.update(g, o) == 0 && !tr.anyDown());
-    // 7. force touch hysteresis
-    tr.forceEnabled = true; clearFrame(g); g.c[0] = {true, 1, 1, 100};
-    tr.update(g, o); CHECK(!o[0].force && pressureFor(o[0]) < 100);
-    g.c[0].z = 105; tr.update(g, o); CHECK(o[0].force && pressureFor(o[0]) == 255);
-    g.c[0].z = 95;  tr.update(g, o); CHECK(o[0].force);     // still held (between on/off)
-    g.c[0].z = 89;  tr.update(g, o); CHECK(!o[0].force);
-    g.c[0].active = false; tr.update(g, o); CHECK(pressureFor(o[0]) == 0);
+    // 7. force touch: hysteresis, never while clicking, never while dragging
+    tr.forceEnabled = true; tr.forceOn = 115; tr.forceOff = 100;
+    clearFrame(g); g.c[0] = {true, 1000, 1000, 110};
+    tr.update(g, o); tr.update(g, o); CHECK(!o[0].force);            // 110 < 115
+    g.c[0].z = 115; tr.update(g, o); CHECK(o[0].force);
+    g.c[0].z = 105; tr.update(g, o); CHECK(o[0].force);              // held between on/off
+    g.c[0].z = 99;  tr.update(g, o); CHECK(!o[0].force);
+    g.c[0].active = false; tr.update(g, o); CHECK(!o[0].force && o[0].valid && !o[0].active);
+    // button held (click-drag): never force even at max pressure
+    Tracker t2; t2.forceEnabled = true; clearFrame(g); g.button = true; g.c[0] = {true, 1000, 1000, 127};
+    t2.update(g, o); t2.update(g, o); CHECK(!o[0].force);
+    // fast movement (tap-drag) blocks force, then it recovers once still for kLockFrames
+    Tracker t3; t3.forceEnabled = true; clearFrame(g); g.c[0] = {true, 1000, 1000, 127};
+    t3.update(g, o); CHECK(o[0].force);                               // pressing still: force
+    g.c[0].x = 1100; t3.update(g, o); CHECK(!o[0].force);             // jumped 100 units: drag
+    for (int i = 0; i < Tracker::kLockFrames - 1; i++) { t3.update(g, o); CHECK(!o[0].force); }
+    t3.update(g, o); CHECK(o[0].force);                               // still for 20 frames: allowed again
+    CHECK(kForcePressure == 255);
     // 8. thumb = lowest finger
     Slot th[3] = {{true, true, false, 0, 100, 1}, {true, true, false, 0, 900, 1}, {true, true, false, 0, 500, 1}};
     CHECK(lowestFinger(th, 3) == 1 && activeCount(th, 3) == 3);

@@ -50,7 +50,7 @@
 			<key>PressureSupport</key>
 			<true/>
 			<key>ForceTouchThreshold</key>
-			<integer>105</integer>
+			<integer>115</integer>
 			<key>RM,deliverNotifications</key>
 			<true/>
 		</dict>

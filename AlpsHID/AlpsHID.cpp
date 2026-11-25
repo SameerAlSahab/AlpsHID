@@ -59,7 +59,7 @@ bool AlpsHIDEventDriver::handleStart(IOService* provider) {
         tracker.forceOn = (uint8_t)t;
         tracker.forceOff = (uint8_t)(t > 15 ? t - 15 : 0);
     }
-    tracker.forceEnabled = pressureEnabled && !isT4;   // T4 reports no pressure
+    tracker.forceEnabled = pressureEnabled && !isT4 && tracker.forceOn > 0;   // T4 reports no pressure
 
     if (!hid_interface->open(this, 0, OSMemberFunctionCast(IOHIDInterface::InterruptReportAction,
                              this, &AlpsHIDEventDriver::handleInterruptReport), nullptr)) {
@@ -303,8 +303,7 @@ void AlpsHIDEventDriver::handleInterruptReport(AbsoluteTime ts, IOMemoryDescript
     sendTouch(ts, f);
 
     if (!isT4) {   // clickpad button doubles as a pointer button (original behaviour)
-        int btn = f.rawButtons & 0x07;
-        if (btn != lastPtrButtons) sendPointer(ts, 0, 0, btn);
+        sendPointer(ts, 0, 0, f.rawButtons & 0x07);   // every frame, as the original did
     }
 }
 
@@ -334,12 +333,12 @@ void AlpsHIDEventDriver::sendTouch(AbsoluteTime ts, const alps::Frame& f) {
                                      : (MT2FingerType)(kMT2FingerTypeIndexFinger + (i % 4));
         t->isValid = s.valid;
         t->isTransducerActive = s.active;
-        t->supportsPressure = pressureEnabled && !isT4;
+        t->supportsPressure = s.force;   // false => VoodooInput defaults, same as the original driver
         t->maxPressure = 255;
         t->currentCoordinates.x = s.x;
         t->currentCoordinates.y = s.y;
-        t->currentCoordinates.pressure = alps::pressureFor(s);
-        t->currentCoordinates.width = alps::widthFor(s);
+        t->currentCoordinates.pressure = s.force ? alps::kForcePressure : 0;
+        t->currentCoordinates.width = s.force ? alps::kForceWidth : 0;
         t->previousCoordinates = t->currentCoordinates;
     }
     messageClient(kIOMessageVoodooInputMessage, voodooInputInstance, &inputMessage, sizeof(inputMessage));

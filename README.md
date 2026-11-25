@@ -127,11 +127,12 @@ List of devices that match the ProductIDs above, found using http://linux-hardwa
 
 # Pressure and Force Touch (U1 touchpads)
 
-U1 pads report a 7-bit contact strength. AlpsHID maps it to pressure/size and emulates Force Touch with
-hysteresis: it engages at `ForceTouchThreshold` and releases 15 below it. Tune these in `Info.plist`:
+U1 pads report a 7-bit contact strength. AlpsHID emulates Force Touch with hysteresis: it engages at
+`ForceTouchThreshold` and releases 15 below it. Force is never engaged while the button is held or while the
+finger is moving, so dragging behaves exactly like the original driver. Tune these in `Info.plist`:
 
 - `PressureSupport` (bool, default true) - false restores the old fixed-pressure behaviour
-- `ForceTouchThreshold` (0-127, default 105) - lower = lighter press triggers force click
+- `ForceTouchThreshold` (0-127, default 115) - lower = lighter press triggers force click
 - `QuietTimeAfterTyping` (ms, default 500)
 
 T4 pads do not report per-finger pressure, so they keep fixed pressure. While the physical button is held,

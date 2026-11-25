@@ -114,7 +114,11 @@ class Tracker {
 public:
     bool    forceEnabled = false;
     uint8_t forceOn  = 105;   // engage at/above this raw z
-    uint8_t forceOff = 90;    // release below this raw z (hysteresis)
+    uint8_t forceOff = 100;   // release below this raw z (hysteresis)
+    // A finger that moves more than kMoveLimit raw units in one frame is dragging, not pressing:
+    // force is blocked for kLockFrames frames so a hard drag never becomes a force click.
+    static constexpr uint32_t kMoveLimit = 30;
+    static constexpr uint8_t  kLockFrames = 20;
 
     // Fills out[]; returns the VoodooInput contact_count (highest used slot + 1).
     // A finger that disappeared yields exactly one lift frame (valid, !active).
@@ -125,8 +129,15 @@ public:
             s = Slot();
             const Contact& c = f.c[i];
             if (c.active) {
+                if (down_[i]) {
+                    uint32_t mx = c.x > lx_[i] ? c.x - lx_[i] : lx_[i] - c.x;
+                    uint32_t my = c.y > ly_[i] ? c.y - ly_[i] : ly_[i] - c.y;
+                    if (mx + my > kMoveLimit) lock_[i] = kLockFrames;
+                    else if (lock_[i]) lock_[i]--;
+                }
                 if (forceEnabled) {
-                    if (force_[i]) { if (c.z < forceOff) force_[i] = false; }
+                    if (f.button || lock_[i]) force_[i] = false;   // clicking or dragging: never force
+                    else if (force_[i]) { if (c.z < forceOff) force_[i] = false; }
                     else if (c.z >= forceOn) force_[i] = true;
                 }
                 s.valid = s.active = true;
@@ -138,6 +149,7 @@ public:
                 s.valid = true; s.active = false;
                 s.x = lx_[i]; s.y = ly_[i];
                 down_[i] = force_[i] = false;
+                lock_[i] = 0;
                 n = i + 1;
             }
         }
@@ -148,11 +160,12 @@ public:
         for (int i = 0; i < kMaxTouches; i++) if (down_[i]) return true;
         return false;
     }
-    void reset() { for (int i = 0; i < kMaxTouches; i++) down_[i] = force_[i] = false; }
+    void reset() { for (int i = 0; i < kMaxTouches; i++) { down_[i] = force_[i] = false; lock_[i] = 0; } }
 
 private:
     bool     down_[kMaxTouches]  = {};
     bool     force_[kMaxTouches] = {};
+    uint8_t  lock_[kMaxTouches]  = {};
     uint32_t lx_[kMaxTouches]    = {};
     uint32_t ly_[kMaxTouches]    = {};
 };
@@ -168,17 +181,10 @@ inline int activeCount(const Slot* s, int n) {
     int k = 0; for (int i = 0; i < n; i++) k += s[i].active; return k;
 }
 
-// Light touches map to 5..60, an engaged force touch is 255.
-inline uint8_t pressureFor(const Slot& s) {
-    if (!s.active) return 0;
-    if (s.force) return 255;
-    return (uint8_t)(5 + (uint32_t)(s.z > 127 ? 127 : s.z) * 55 / 127);
-}
-inline uint8_t widthFor(const Slot& s) {
-    if (!s.active) return 0;
-    uint8_t w = s.z / 2;
-    return w < 10 ? 10 : w;
-}
+// Pressure data is only sent for a finger in a force press; every other finger uses
+// VoodooInput's defaults (pressure 5, size 10, touch 20), exactly like the original driver.
+constexpr uint8_t kForcePressure = 255;
+constexpr uint8_t kForceWidth    = 20;
 
 // ---- feature-report register access ---------------------------------------
 // T4 uses a Fletcher-16 style checksum, folded every 20 bytes (as in Linux).
